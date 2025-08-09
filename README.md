@@ -16,8 +16,8 @@ You may also see any lint errors in the console.
 
 ### `npm test`
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+Runs the test suite once and reports code coverage.\
+Coverage results are printed to the terminal and a detailed report is written to `coverage/lcov-report/index.html`.
 
 ### `npm run build`
 
@@ -44,6 +44,10 @@ You don't have to ever use `eject`. The curated feature set is suitable for smal
 You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
 
 To learn React, check out the [React documentation](https://reactjs.org/).
+
+## Testing
+
+Run `npm test` to execute the full test suite and generate a coverage report. The summary is printed in the terminal and a detailed HTML report is saved to `coverage/lcov-report/index.html`.
 
 ### Code Splitting
 
