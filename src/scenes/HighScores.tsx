@@ -1,5 +1,6 @@
 import React from 'react';
 import { ScoreRecord } from '../types';
+import { cities } from '../data/cities';
 
 interface Props {
   scores: ScoreRecord[];
@@ -12,7 +13,9 @@ export const HighScores: React.FC<Props> = ({ scores, onBack }) => (
     <ol>
       {scores.map((s) => (
         <li key={s.id}>
-          {s.kaiju.name}: ${s.score}
+          {s.kaiju.name} in {
+            cities.find((c) => c.id === s.cityId)?.name || s.cityId
+          }: ${s.score}
         </li>
       ))}
     </ol>

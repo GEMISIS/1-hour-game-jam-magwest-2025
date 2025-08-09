@@ -1,5 +1,13 @@
 import React, { useState } from 'react';
-import { KaijuConfig } from '../types';
+import {
+  KaijuConfig,
+  ArmType,
+  LegType,
+  WeaponType,
+  ARM_OPTIONS,
+  LEG_OPTIONS,
+  WEAPON_OPTIONS,
+} from '../types';
 
 interface Props {
   onContinue: (config: KaijuConfig) => void;
@@ -9,9 +17,9 @@ const KAIJU_NAMES = ['Boulderback', 'Steamjaw', 'Razorwing', 'Pyronox', 'Gigacla
 
 const defaultConfig: KaijuConfig = {
   name: KAIJU_NAMES[Math.floor(Math.random() * KAIJU_NAMES.length)],
-  arms: 'claws',
-  legs: 'biped',
-  weapon: 'fire',
+  arms: ArmType.Claws,
+  legs: LegType.Biped,
+  weapon: WeaponType.Fire,
 };
 
 export const CreateKaiju: React.FC<Props> = ({ onContinue }) => {
@@ -36,12 +44,14 @@ export const CreateKaiju: React.FC<Props> = ({ onContinue }) => {
         <select
           value={config.arms}
           onChange={(e) =>
-            setConfig({ ...config, arms: e.target.value as KaijuConfig['arms'] })
+            setConfig({ ...config, arms: e.target.value as ArmType })
           }
         >
-          <option value="claws">Claws</option>
-          <option value="club">Club</option>
-          <option value="tentacles">Tentacles</option>
+          {ARM_OPTIONS.map(({ value, label }) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
         </select>
       </div>
       <div>
@@ -49,12 +59,14 @@ export const CreateKaiju: React.FC<Props> = ({ onContinue }) => {
         <select
           value={config.legs}
           onChange={(e) =>
-            setConfig({ ...config, legs: e.target.value as KaijuConfig['legs'] })
+            setConfig({ ...config, legs: e.target.value as LegType })
           }
         >
-          <option value="biped">Biped</option>
-          <option value="quad">Quad</option>
-          <option value="treads">Treads</option>
+          {LEG_OPTIONS.map(({ value, label }) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
         </select>
       </div>
       <div>
@@ -62,15 +74,14 @@ export const CreateKaiju: React.FC<Props> = ({ onContinue }) => {
         <select
           value={config.weapon}
           onChange={(e) =>
-            setConfig({
-              ...config,
-              weapon: e.target.value as KaijuConfig['weapon'],
-            })
+            setConfig({ ...config, weapon: e.target.value as WeaponType })
           }
         >
-          <option value="fire">Fire Breath</option>
-          <option value="laser">Laser Eyes</option>
-          <option value="poison">Poison Darts</option>
+          {WEAPON_OPTIONS.map(({ value, label }) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
         </select>
       </div>
       <button disabled={!config.name.trim()} onClick={handleContinue}>

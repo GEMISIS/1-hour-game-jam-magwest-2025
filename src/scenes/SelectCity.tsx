@@ -1,21 +1,28 @@
 import React, { useState } from 'react';
+import { cities } from '../data/cities';
+import { CityDefinition } from '../types';
 
 interface Props {
-  onBegin: (city: string) => void;
+  onBegin: (city: CityDefinition) => void;
 }
 
-const cities = ['Metroville', 'Coast City'];
-
 export const SelectCity: React.FC<Props> = ({ onBegin }) => {
-  const [city, setCity] = useState(cities[0]);
+  const [city, setCity] = useState<CityDefinition>(cities[0]);
 
   return (
     <div className="menu select-city">
       <h2>Select City</h2>
-      <select value={city} onChange={(e) => setCity(e.target.value)}>
+      <select
+        value={city.id}
+        onChange={(e) =>
+          setCity(
+            cities.find((c) => c.id === e.target.value) as CityDefinition
+          )
+        }
+      >
         {cities.map((c) => (
-          <option key={c} value={c}>
-            {c}
+          <option key={c.id} value={c.id}>
+            {c.name}
           </option>
         ))}
       </select>

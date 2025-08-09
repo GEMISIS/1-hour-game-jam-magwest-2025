@@ -2,6 +2,9 @@ import React, { useState } from 'react';
 import {
   KaijuConfig,
   ScoreRecord,
+  GameSettings,
+  CityDefinition,
+  Difficulty,
 } from './types';
 import { Start } from './scenes/Start';
 import { CreateKaiju } from './scenes/CreateKaiju';
@@ -9,19 +12,26 @@ import { SelectCity } from './scenes/SelectCity';
 import { Level } from './scenes/Level';
 import { Score } from './scenes/Score';
 import { HighScores } from './scenes/HighScores';
+import { Options } from './scenes/Options';
 import './App.css';
 
 type Scene =
   | { name: 'start' }
   | { name: 'create' }
+  | { name: 'options' }
   | { name: 'select'; config: KaijuConfig }
-  | { name: 'level'; config: KaijuConfig; city: string }
+  | { name: 'level'; config: KaijuConfig; city: CityDefinition }
   | { name: 'score'; score: number }
   | { name: 'highscores' };
 
 function App() {
   const [scene, setScene] = useState<Scene>({ name: 'start' });
   const [scores, setScores] = useState<ScoreRecord[]>([]);
+  const [settings, setSettings] = useState<GameSettings>({
+    music: true,
+    sfx: true,
+    difficulty: Difficulty.Normal,
+  });
 
   switch (scene.name) {
     case 'start':
@@ -29,12 +39,23 @@ function App() {
         <Start
           onStartGame={() => setScene({ name: 'create' })}
           onViewHighScores={() => setScene({ name: 'highscores' })}
+          onOptions={() => setScene({ name: 'options' })}
         />
       );
     case 'create':
       return (
         <CreateKaiju
           onContinue={(config) => setScene({ name: 'select', config })}
+        />
+      );
+    case 'options':
+      return (
+        <Options
+          settings={settings}
+          onClose={(s) => {
+            setSettings(s);
+            setScene({ name: 'start' });
+          }}
         />
       );
     case 'select':
@@ -54,7 +75,7 @@ function App() {
             const record: ScoreRecord = {
               id: Date.now().toString(),
               kaiju: scene.config,
-              city: scene.city,
+              cityId: scene.city.id,
               score,
               createdAt: new Date().toISOString(),
             };

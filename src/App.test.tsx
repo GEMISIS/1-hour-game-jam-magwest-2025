@@ -3,6 +3,6 @@ import App from './App';
 
 test('renders start menu', () => {
   render(<App />);
-  const button = screen.getByText(/Start Game/i);
-  expect(button).toBeInTheDocument();
+  expect(screen.getByText(/Start Game/i)).toBeInTheDocument();
+  expect(screen.getByText(/Options/i)).toBeInTheDocument();
 });
