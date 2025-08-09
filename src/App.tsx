@@ -114,7 +114,7 @@ function App() {
       <header className="app-header">
         <img src={logo} className="logo" alt="Kaiju Creator logo" />
       </header>
-      {currentScene}
+      <div className="game-area">{currentScene}</div>
     </div>
   );
 }
