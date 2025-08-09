@@ -14,8 +14,10 @@
 }
 
 .level-screen {
-  color: white;
+  color: #000;
+  background: #fff;
   text-align: center;
+  width: 100%;
 }
 
 .sprites img {

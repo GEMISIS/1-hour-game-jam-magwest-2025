@@ -7,68 +7,144 @@ interface Props {
   onGameOver: (score: number) => void;
 }
 
-interface Enemy {
+type EntityType = 'building' | 'car' | 'tank' | 'heli';
+
+interface Entity {
   id: number;
+  type: EntityType;
   x: number;
-  type: 'tank' | 'heli';
-  damage: number;
+  y?: number;
+  hp?: number;
+  damage?: number;
   value: number;
+  lastAttack?: number;
 }
 
-const PLAYER_X = 100; // px from left
 const WORLD_SPEED = 100; // px / sec
 const BLOCK_LENGTH = 1000; // world units per city block
-const ENEMY_SPAWN_MS = 2000;
+const LAND_SPAWN_MS = 1500;
+const AIR_SPAWN_MS = 3000;
+const ATTACK_PAUSE_MS = 300;
 
 export const Level: React.FC<Props> = ({ config, city, onGameOver }) => {
   const [score, setScore] = useState(0);
   const [health, setHealth] = useState(100);
-  const [enemies, setEnemies] = useState<Enemy[]>([]);
+  const [entities, setEntities] = useState<Entity[]>([]);
+  const [dimensions, setDimensions] = useState({
+    width: window.innerWidth,
+    height: window.innerHeight,
+  });
 
-  // refs to avoid stale closures in RAF loop
-  const enemiesRef = useRef<Enemy[]>(enemies);
+  // refs for raf loop
+  const entitiesRef = useRef<Entity[]>(entities);
   const scoreRef = useRef(0);
   const healthRef = useRef(100);
   const progressRef = useRef(0);
-  const lastSpawnRef = useRef(0);
+  const lastLandSpawnRef = useRef(0);
+  const lastAirSpawnRef = useRef(0);
   const frameRef = useRef<number>(0);
+  const pauseUntilRef = useRef(0);
+  const playerXRef = useRef(100);
+  const fieldWidthRef = useRef(800);
 
   useEffect(() => {
-    enemiesRef.current = enemies;
-  }, [enemies]);
-
+    entitiesRef.current = entities;
+  }, [entities]);
   useEffect(() => {
     scoreRef.current = score;
   }, [score]);
-
   useEffect(() => {
     healthRef.current = health;
   }, [health]);
 
-  const spawnEnemy = () => {
-    const id = Date.now() + Math.random();
-    const enemy: Enemy = {
-      id,
-      x: 800,
-      type: Math.random() < 0.5 ? 'tank' : 'heli',
-      damage: 10,
-      value: 1000,
+  useEffect(() => {
+    const onResize = () => {
+      setDimensions({ width: window.innerWidth, height: window.innerHeight });
     };
-    enemiesRef.current.push(enemy);
-    setEnemies([...enemiesRef.current]);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  const fieldWidth = Math.min(dimensions.width, 800);
+  const fieldHeight = Math.min(dimensions.height * 0.6, 400);
+  playerXRef.current = fieldWidth * 0.125;
+  fieldWidthRef.current = fieldWidth;
+
+  const spawnLand = () => {
+    const id = Date.now() + Math.random();
+    const roll = Math.random();
+    if (roll < 0.2) {
+      entitiesRef.current.push({
+        id,
+        type: 'building',
+        x: fieldWidthRef.current,
+        hp: 3,
+        value: 5000,
+      });
+    } else if (roll < 0.6) {
+      entitiesRef.current.push({
+        id,
+        type: 'car',
+        x: fieldWidthRef.current,
+        value: 500,
+      });
+    } else {
+      entitiesRef.current.push({
+        id,
+        type: 'tank',
+        x: fieldWidthRef.current,
+        damage: 10,
+        value: 1500,
+      });
+    }
+    setEntities([...entitiesRef.current]);
   };
 
-  // simple input handler: space to attack
+  const spawnAir = () => {
+    const id = Date.now() + Math.random();
+    entitiesRef.current.push({
+      id,
+      type: 'heli',
+      x: fieldWidthRef.current,
+      y: fieldHeight - 80,
+      hp: 2,
+      damage: 5,
+      value: 2000,
+      lastAttack: performance.now(),
+    });
+    setEntities([...entitiesRef.current]);
+  };
+
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       if (e.code === 'Space') {
-        const idx = enemiesRef.current.findIndex(
-          (enemy) => enemy.x - PLAYER_X < 80
+        pauseUntilRef.current = performance.now() + ATTACK_PAUSE_MS;
+
+        const building = entitiesRef.current.find(
+          (ent) =>
+            ent.type === 'building' &&
+            ent.x - playerXRef.current < 80 &&
+            (ent.hp ?? 0) > 0
         );
-        if (idx !== -1) {
-          const [enemy] = enemiesRef.current.splice(idx, 1);
-          setScore(scoreRef.current + enemy.value);
-          setEnemies([...enemiesRef.current]);
+        if (building) {
+          building.hp!--;
+          if ((building.hp ?? 0) <= 0) {
+            setScore(scoreRef.current + building.value);
+            entitiesRef.current = entitiesRef.current.filter(
+              (e) => e.id !== building.id
+            );
+            setEntities([...entitiesRef.current]);
+          }
+          return;
+        }
+
+        const heliIdx = entitiesRef.current.findIndex(
+          (ent) => ent.type === 'heli' && ent.x - playerXRef.current <= 300
+        );
+        if (heliIdx !== -1) {
+          const [heli] = entitiesRef.current.splice(heliIdx, 1);
+          setScore(scoreRef.current + heli.value);
+          setEntities([...entitiesRef.current]);
         }
       }
     };
@@ -83,26 +159,52 @@ export const Level: React.FC<Props> = ({ config, city, onGameOver }) => {
       const dt = (time - last) / 1000;
       last = time;
 
-      progressRef.current += WORLD_SPEED * dt;
+      const blocked = entitiesRef.current.some(
+        (e) =>
+          e.type === 'building' &&
+          e.x - playerXRef.current < 80 &&
+          (e.hp ?? 0) > 0
+      );
+      const paused =
+        blocked || time < pauseUntilRef.current;
 
-      if (time - lastSpawnRef.current > ENEMY_SPAWN_MS) {
-        lastSpawnRef.current = time;
-        spawnEnemy();
+      if (!paused) {
+        progressRef.current += WORLD_SPEED * dt;
+        entitiesRef.current.forEach((e) => {
+          e.x -= WORLD_SPEED * dt;
+          if (e.type === 'heli' && e.x < playerXRef.current + 200) {
+            e.x = playerXRef.current + 200;
+          }
+        });
       }
 
-      enemiesRef.current.forEach((enemy) => {
-        enemy.x -= WORLD_SPEED * dt;
-      });
+      if (time - lastLandSpawnRef.current > LAND_SPAWN_MS) {
+        lastLandSpawnRef.current = time;
+        spawnLand();
+      }
+      if (time - lastAirSpawnRef.current > AIR_SPAWN_MS) {
+        lastAirSpawnRef.current = time;
+        spawnAir();
+      }
 
-      enemiesRef.current = enemiesRef.current.filter((enemy) => {
-        if (enemy.x <= PLAYER_X) {
-          const newHealth = healthRef.current - enemy.damage;
-          setHealth(newHealth);
-          return false;
+      entitiesRef.current = entitiesRef.current.filter((e) => {
+        if (e.type === 'car' || e.type === 'tank') {
+          if (e.x <= playerXRef.current) {
+            const dmg = e.type === 'tank' ? e.damage ?? 0 : 0;
+            setHealth(healthRef.current - dmg);
+            setScore(scoreRef.current + e.value);
+            return false;
+          }
         }
-        return true;
+        if (e.type === 'heli') {
+          if (time - (e.lastAttack ?? 0) > 1000) {
+            e.lastAttack = time;
+            setHealth(healthRef.current - (e.damage ?? 0));
+          }
+        }
+        return e.x > -100;
       });
-      setEnemies([...enemiesRef.current]);
+      setEntities([...entitiesRef.current]);
 
       if (
         healthRef.current <= 0 ||
@@ -124,7 +226,16 @@ export const Level: React.FC<Props> = ({ config, city, onGameOver }) => {
   return (
     <div className="level-screen">
       <h2>Rampage in {city.name}</h2>
-      <div className="hud">
+      <div
+        className="hud"
+        style={{
+          background: 'rgba(0,0,0,0.6)',
+          color: '#fff',
+          padding: '0.5rem',
+          borderRadius: '4px',
+          display: 'inline-block',
+        }}
+      >
         <div>Health: {health}</div>
         <div>Score: ${score}</div>
         <div>
@@ -135,28 +246,39 @@ export const Level: React.FC<Props> = ({ config, city, onGameOver }) => {
         className="playfield"
         style={{
           position: 'relative',
-          width: 800,
-          height: 300,
+          width: fieldWidth,
+          height: fieldHeight,
           overflow: 'hidden',
           background: '#88c',
+          margin: '0 auto',
         }}
       >
         <img
           src="/kaiju.svg"
           alt={config.name}
-          style={{ position: 'absolute', left: PLAYER_X, bottom: 0 }}
+          style={{ position: 'absolute', left: playerXRef.current, bottom: 0 }}
         />
-        {enemies.map((enemy) => (
+        {entities.map((ent) => (
           <div
-            key={enemy.id}
-            className={`enemy enemy-${enemy.type}`}
+            key={ent.id}
+            className={`entity entity-${ent.type}`}
             style={{
               position: 'absolute',
-              left: enemy.x,
-              bottom: 0,
+              left: ent.x,
+              bottom:
+                ent.type === 'heli'
+                  ? 160
+                  : 0,
               width: 40,
-              height: 40,
-              background: enemy.type === 'tank' ? 'green' : 'gray',
+              height: ent.type === 'building' ? 100 : 40,
+              background:
+                ent.type === 'car'
+                  ? 'orange'
+                  : ent.type === 'tank'
+                  ? 'green'
+                  : ent.type === 'heli'
+                  ? 'gray'
+                  : '#555',
             }}
           />
         ))}
