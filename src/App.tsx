@@ -6,13 +6,15 @@ import {
   CityDefinition,
   Difficulty,
 } from './types';
-import { Start } from './scenes/Start';
-import { CreateKaiju } from './scenes/CreateKaiju';
-import { SelectCity } from './scenes/SelectCity';
-import { Level } from './scenes/Level';
-import { Score } from './scenes/Score';
-import { HighScores } from './scenes/HighScores';
-import { Options } from './scenes/Options';
+import {
+  Start,
+  CreateKaiju,
+  SelectCity,
+  Level,
+  Score,
+  HighScores,
+  Options,
+} from './scenes';
 import './App.css';
 
 type Scene =
