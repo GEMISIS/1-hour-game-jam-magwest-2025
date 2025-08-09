@@ -5,8 +5,10 @@ interface Props {
   onContinue: (config: KaijuConfig) => void;
 }
 
+const KAIJU_NAMES = ['Boulderback', 'Steamjaw', 'Razorwing', 'Pyronox', 'Gigaclaw'];
+
 const defaultConfig: KaijuConfig = {
-  name: '',
+  name: KAIJU_NAMES[Math.floor(Math.random() * KAIJU_NAMES.length)],
   arms: 'claws',
   legs: 'biped',
   weapon: 'fire',
@@ -14,6 +16,12 @@ const defaultConfig: KaijuConfig = {
 
 export const CreateKaiju: React.FC<Props> = ({ onContinue }) => {
   const [config, setConfig] = useState<KaijuConfig>(defaultConfig);
+
+  const handleContinue = () => {
+    const name = config.name.trim();
+    if (!name) return;
+    onContinue({ ...config, name });
+  };
 
   return (
     <div className="menu create-kaiju">
@@ -65,7 +73,9 @@ export const CreateKaiju: React.FC<Props> = ({ onContinue }) => {
           <option value="poison">Poison Darts</option>
         </select>
       </div>
-      <button onClick={() => onContinue(config)}>Continue</button>
+      <button disabled={!config.name.trim()} onClick={handleContinue}>
+        Continue
+      </button>
     </div>
   );
 };
