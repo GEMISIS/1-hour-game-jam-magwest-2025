@@ -12,7 +12,7 @@ export const Start: React.FC<Props> = ({
   onOptions,
 }) => (
   <div className="menu start-menu">
-    <h1>Kaiju Sidescroller</h1>
+    <p className="tagline">Unleash your monster!</p>
     <button onClick={onStartGame}>Start Game</button>
     <button onClick={onViewHighScores}>High Scores</button>
     <button onClick={onOptions}>Options</button>

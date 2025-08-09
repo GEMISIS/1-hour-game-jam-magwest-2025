@@ -16,6 +16,7 @@ import {
   Options,
 } from './scenes';
 import './App.css';
+import logo from './logo.svg';
 
 type Scene =
   | { name: 'start' }
@@ -35,23 +36,26 @@ function App() {
     difficulty: Difficulty.Normal,
   });
 
+  let currentScene: React.ReactNode = null;
   switch (scene.name) {
     case 'start':
-      return (
+      currentScene = (
         <Start
           onStartGame={() => setScene({ name: 'create' })}
           onViewHighScores={() => setScene({ name: 'highscores' })}
           onOptions={() => setScene({ name: 'options' })}
         />
       );
+      break;
     case 'create':
-      return (
+      currentScene = (
         <CreateKaiju
           onContinue={(config) => setScene({ name: 'select', config })}
         />
       );
+      break;
     case 'options':
-      return (
+      currentScene = (
         <Options
           settings={settings}
           onClose={(s) => {
@@ -60,16 +64,18 @@ function App() {
           }}
         />
       );
+      break;
     case 'select':
-      return (
+      currentScene = (
         <SelectCity
           onBegin={(city) =>
             setScene({ name: 'level', config: scene.config, city })
           }
         />
       );
+      break;
     case 'level':
-      return (
+      currentScene = (
         <Level
           config={scene.config}
           city={scene.city}
@@ -86,19 +92,31 @@ function App() {
           }}
         />
       );
+      break;
     case 'score':
-      return (
+      currentScene = (
         <Score
           score={scene.score}
           onPlayAgain={() => setScene({ name: 'start' })}
           onViewHighScores={() => setScene({ name: 'highscores' })}
         />
       );
+      break;
     case 'highscores':
-      return <HighScores scores={scores} onBack={() => setScene({ name: 'start' })} />;
-    default:
-      return null;
+      currentScene = (
+        <HighScores scores={scores} onBack={() => setScene({ name: 'start' })} />
+      );
+      break;
   }
+
+  return (
+    <div className="App">
+      <header className="app-header">
+        <img src={logo} className="logo" alt="Kaiju Creator logo" />
+      </header>
+      {currentScene}
+    </div>
+  );
 }
 
 export default App;
