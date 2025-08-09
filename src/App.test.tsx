@@ -1,8 +1,8 @@
 import { render, screen } from '@testing-library/react';
 import App from './App';
 
-test('renders character', () => {
+test('renders start menu', () => {
   render(<App />);
-  const img = screen.getByAltText(/character/i);
-  expect(img).toBeInTheDocument();
+  expect(screen.getByText(/Start Game/i)).toBeInTheDocument();
+  expect(screen.getByText(/Options/i)).toBeInTheDocument();
 });

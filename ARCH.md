@@ -84,7 +84,8 @@ flowchart LR
 
 ## Scenes & Navigation
 
-* **"Start"**: Buttons: "Start Game", "High Scores".
+* **"Start"**: Buttons: "Start Game", "High Scores", "Options".
+* **"Options"**: Toggle music/SFX and choose difficulty.
 * **"Create Kaiju"**: Name field + choose Arms/Legs/Weapon (fire breath, laser eyes, poison darts). Preview updates live.
 * **"Select City"**: Level list (difficulty/length/theme). Shows estimated payout multiplier.
 * **"Level"**: Gameplay with parallax background, buildings, civilians/cars/tanks/helicopters, HUD.
@@ -98,6 +99,8 @@ stateDiagram-v2
   [*] --> "Start"
   "Start" --> "Create Kaiju": "'Start Game'"
   "Start" --> "High Scores": "'View High Scores'"
+  "Start" --> "Options": "'Options'"
+  "Options" --> "Start": "'Back'"
   "Create Kaiju" --> "Select City": "'Continue'"
   "Select City" --> "Level": "'Begin Rampage'"
   "Level" --> "Score": "'Health Zero'"
@@ -165,19 +168,29 @@ flowchart TB
 
 ```ts
 // Shared types between client/server
-export type WeaponType = "fire" | "laser" | "poison";
+export enum WeaponType { Fire = 'fire', Laser = 'laser', Poison = 'poison' }
+export enum ArmType { Claws = 'claws', Club = 'club', Tentacles = 'tentacles' }
+export enum LegType { Biped = 'biped', Quad = 'quad', Treads = 'treads' }
+export enum Difficulty { Easy = 'easy', Normal = 'normal', Hard = 'hard' }
 
 export interface KaijuConfig {
   name: string;
-  arms: "claws" | "club" | "tentacles"; // extendable
-  legs: "biped" | "quad" | "treads";     // style influences speed/knockback
+  arms: ArmType; // extendable
+  legs: LegType; // style influences speed/knockback
   weapon: WeaponType;
+}
+
+export interface CityDefinition {
+  id: string;
+  name: string;
+  difficulty: Difficulty;
+  blocks: number; // rough length of level
 }
 
 export interface ScoreRecord {
   id: string;
   kaiju: KaijuConfig;
-  city: string;
+  cityId: string;
   score: number; // dollars
   createdAt: string; // ISO
 }
@@ -185,9 +198,12 @@ export interface ScoreRecord {
 export interface GameSettings {
   music: boolean;
   sfx: boolean;
-  difficulty: "easy" | "normal" | "hard";
+  difficulty: Difficulty;
 }
 ```
+
+City data lives in `src/data/cities.ts`, where each `CityDefinition` specifies the level's
+display name, difficulty, and rough length via a `blocks` count.
 
 ---
 
@@ -203,6 +219,7 @@ type ScoreRow = {
   id: string;          // uuid v4
   name: string;        // player display
   kaiju: { armsId: string; legsId: string; weaponId: string };
+  cityId: string;      // reference to CityDefinition
   score: number;       // dollars destroyed
   createdAt: string;   // ISO 8601
 };
@@ -210,7 +227,7 @@ type ScoreRow = {
 type GameSettings = {
   music: boolean;
   sfx: boolean;
-  difficulty: "easy" | "normal" | "hard";
+  difficulty: Difficulty;
 };
 ```
 
