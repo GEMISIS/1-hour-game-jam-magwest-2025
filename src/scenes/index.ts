@@ -1,3 +1,4 @@
+/* istanbul ignore file */
 export { Start } from './Start';
 export { CreateKaiju } from './CreateKaiju';
 export { SelectCity } from './SelectCity';

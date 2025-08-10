@@ -15,13 +15,16 @@ test('updates settings and calls onClose', async () => {
   const music = screen.getByLabelText(/Music/i);
   await userEvent.click(music);
 
+  const sfx = screen.getByLabelText(/Sound Effects/i);
+  await userEvent.click(sfx);
+
   const select = screen.getByRole('combobox');
   await userEvent.selectOptions(select, Difficulty.Hard);
 
   await userEvent.click(screen.getByText(/Back/i));
   expect(onClose).toHaveBeenCalledWith({
     music: false,
-    sfx: true,
+    sfx: false,
     difficulty: Difficulty.Hard,
   });
 });
