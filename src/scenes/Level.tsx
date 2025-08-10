@@ -5,9 +5,19 @@ interface Props {
   config: KaijuConfig;
   city: CityDefinition;
   onGameOver: (score: number) => void;
+  spawnRates?: {
+    land: number;
+    air: number;
+  };
 }
 
-type EntityType = 'building' | 'car' | 'tank' | 'heli' | 'explosion';
+type EntityType =
+  | 'building'
+  | 'car'
+  | 'tank'
+  | 'heli'
+  | 'explosion'
+  | 'missile';
 
 interface Entity {
   id: number;
@@ -19,6 +29,7 @@ interface Entity {
   value: number;
   lastAttack?: number;
   ttl?: number;
+  speed?: number;
 }
 
 const WORLD_SPEED = 100; // px / sec
@@ -30,8 +41,16 @@ const KAIJU_SIZE = 120;
 const BUILDING_WIDTH = 80;
 const BUILDING_HEIGHT = 160;
 const VEHICLE_SIZE = 40;
+const BUILDING_MAX_HP = 3;
+const TANK_MISSILE_SPEED = 300;
+const HELI_MISSILE_SPEED = 350;
 
-export const Level: React.FC<Props> = ({ config, city, onGameOver }) => {
+export const Level: React.FC<Props> = ({
+  config,
+  city,
+  onGameOver,
+  spawnRates,
+}) => {
   const [score, setScore] = useState(0);
   const [health, setHealth] = useState(100);
   const [entities, setEntities] = useState<Entity[]>([]);
@@ -76,6 +95,9 @@ export const Level: React.FC<Props> = ({ config, city, onGameOver }) => {
   playerXRef.current = fieldWidth * 0.125;
   fieldWidthRef.current = fieldWidth;
 
+  const landInterval = spawnRates?.land ?? LAND_SPAWN_MS;
+  const airInterval = spawnRates?.air ?? AIR_SPAWN_MS;
+
   const spawnLand = () => {
     const id = Date.now() + Math.random();
     const roll = Math.random();
@@ -84,7 +106,7 @@ export const Level: React.FC<Props> = ({ config, city, onGameOver }) => {
         id,
         type: 'building',
         x: fieldWidthRef.current,
-        hp: 3,
+        hp: BUILDING_MAX_HP,
         value: 5000,
       });
     } else if (roll < 0.6) {
@@ -101,6 +123,7 @@ export const Level: React.FC<Props> = ({ config, city, onGameOver }) => {
         x: fieldWidthRef.current,
         damage: 10,
         value: 1500,
+        lastAttack: performance.now(),
       });
     }
     setEntities([...entitiesRef.current]);
@@ -117,6 +140,24 @@ export const Level: React.FC<Props> = ({ config, city, onGameOver }) => {
       damage: 5,
       value: 2000,
       lastAttack: performance.now(),
+    });
+    setEntities([...entitiesRef.current]);
+  };
+
+  const fireMissile = (
+    x: number,
+    y: number,
+    speed: number,
+    damage: number
+  ) => {
+    entitiesRef.current.push({
+      id: Date.now() + Math.random(),
+      type: 'missile',
+      x,
+      y,
+      speed,
+      damage,
+      value: 0,
     });
     setEntities([...entitiesRef.current]);
   };
@@ -181,42 +222,67 @@ export const Level: React.FC<Props> = ({ config, city, onGameOver }) => {
           e.x - playerXRef.current < BUILDING_WIDTH &&
           (e.hp ?? 0) > 0
       );
+      const heliThreat = entitiesRef.current.some(
+        (e) => e.type === 'heli' && e.x - playerXRef.current < 300
+      );
       const paused =
-        blocked || time < pauseUntilRef.current;
+        blocked || heliThreat || time < pauseUntilRef.current;
 
       if (!paused) {
         progressRef.current += WORLD_SPEED * dt;
         entitiesRef.current.forEach((e) => {
-          e.x -= WORLD_SPEED * dt;
-          if (e.type === 'heli' && e.x < playerXRef.current + 200) {
-            e.x = playerXRef.current + 200;
+          if (e.type !== 'missile') {
+            e.x -= WORLD_SPEED * dt;
+            if (e.type === 'heli' && e.x < playerXRef.current + 200) {
+              e.x = playerXRef.current + 200;
+            }
           }
         });
       }
 
-      if (time - lastLandSpawnRef.current > LAND_SPAWN_MS) {
+      if (time - lastLandSpawnRef.current > landInterval) {
         lastLandSpawnRef.current = time;
         spawnLand();
       }
-      if (time - lastAirSpawnRef.current > AIR_SPAWN_MS) {
+      if (time - lastAirSpawnRef.current > airInterval) {
         lastAirSpawnRef.current = time;
         spawnAir();
       }
 
+      entitiesRef.current.forEach((e) => {
+        if (e.type === 'tank') {
+          if (e.x - playerXRef.current < 400 && time - (e.lastAttack ?? 0) > 1500) {
+            e.lastAttack = time;
+            fireMissile(e.x, VEHICLE_SIZE / 2, TANK_MISSILE_SPEED, e.damage ?? 0);
+          }
+        }
+        if (e.type === 'heli') {
+          if (time - (e.lastAttack ?? 0) > 1500) {
+            e.lastAttack = time;
+            fireMissile(
+              e.x,
+              KAIJU_SIZE * 0.5,
+              HELI_MISSILE_SPEED,
+              e.damage ?? 0
+            );
+          }
+        }
+      });
+
       entitiesRef.current = entitiesRef.current.filter((e) => {
         if (e.type === 'car' || e.type === 'tank') {
           if (e.x <= playerXRef.current) {
-            const dmg = e.type === 'tank' ? e.damage ?? 0 : 0;
-            setHealth(healthRef.current - dmg);
             setScore(scoreRef.current + e.value);
             return false;
           }
         }
-        if (e.type === 'heli') {
-          if (time - (e.lastAttack ?? 0) > 1000) {
-            e.lastAttack = time;
+        if (e.type === 'missile') {
+          e.x -= (e.speed ?? 0) * dt;
+          if (e.x <= playerXRef.current + KAIJU_SIZE && e.x >= playerXRef.current) {
             setHealth(healthRef.current - (e.damage ?? 0));
+            return false;
           }
+          return e.x > -50;
         }
         if (e.type === 'explosion') {
           e.ttl = (e.ttl ?? 0) - dt * 1000;
@@ -241,7 +307,7 @@ export const Level: React.FC<Props> = ({ config, city, onGameOver }) => {
     return () => {
       if (frameRef.current) cancelAnimationFrame(frameRef.current);
     };
-  }, [city.blocks, onGameOver]);
+  }, [city.blocks, onGameOver, landInterval, airInterval]);
 
   return (
     <div className="level-screen">
@@ -297,39 +363,68 @@ export const Level: React.FC<Props> = ({ config, city, onGameOver }) => {
           />
         )}
         {entities.map((ent) => (
-          <div
-            key={ent.id}
-            className={`entity entity-${ent.type}`}
-            style={{
-              position: 'absolute',
-              left: ent.x,
-              bottom:
-                ent.type === 'heli'
-                  ? 160
-                  : 0,
-              width:
-                ent.type === 'building'
-                  ? BUILDING_WIDTH
-                  : VEHICLE_SIZE,
-              height:
-                ent.type === 'building'
-                  ? BUILDING_HEIGHT
-                  : ent.type === 'heli'
-                  ? VEHICLE_SIZE
-                  : VEHICLE_SIZE,
-              background:
-                ent.type === 'car'
-                  ? 'orange'
-                  : ent.type === 'tank'
-                  ? 'green'
-                  : ent.type === 'heli'
-                  ? 'gray'
-                  : ent.type === 'explosion'
-                  ? 'yellow'
-                  : ['#bbb', '#999', '#777', '#555'][ent.hp ?? 0],
-              borderRadius: ent.type === 'explosion' ? '50%' : undefined,
-            }}
-          />
+          <React.Fragment key={ent.id}>
+            <div
+              className={`entity entity-${ent.type}`}
+              style={{
+                position: 'absolute',
+                left: ent.x,
+                bottom:
+                  ent.type === 'heli'
+                    ? 160
+                    : ent.type === 'missile'
+                    ? ent.y
+                    : 0,
+                width:
+                  ent.type === 'building'
+                    ? BUILDING_WIDTH
+                    : ent.type === 'missile'
+                    ? 10
+                    : VEHICLE_SIZE,
+                height:
+                  ent.type === 'building'
+                    ? BUILDING_HEIGHT
+                    : ent.type === 'heli'
+                    ? VEHICLE_SIZE
+                    : ent.type === 'missile'
+                    ? 4
+                    : VEHICLE_SIZE,
+                background:
+                  ent.type === 'car'
+                    ? 'orange'
+                    : ent.type === 'tank'
+                    ? 'green'
+                    : ent.type === 'heli'
+                    ? 'gray'
+                    : ent.type === 'missile'
+                    ? 'red'
+                    : ent.type === 'explosion'
+                    ? 'yellow'
+                    : ['#bbb', '#999', '#777', '#555'][ent.hp ?? 0],
+                borderRadius: ent.type === 'explosion' ? '50%' : undefined,
+              }}
+            />
+            {ent.type === 'building' && (
+              <div
+                style={{
+                  position: 'absolute',
+                  left: ent.x,
+                  bottom: BUILDING_HEIGHT + 4,
+                  width: BUILDING_WIDTH,
+                  height: 6,
+                  background: '#400',
+                }}
+              >
+                <div
+                  style={{
+                    width: `${((ent.hp ?? 0) / BUILDING_MAX_HP) * 100}%`,
+                    height: '100%',
+                    background: '#f00',
+                  }}
+                />
+              </div>
+            )}
+          </React.Fragment>
         ))}
       </div>
     </div>
