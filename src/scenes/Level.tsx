@@ -7,7 +7,7 @@ interface Props {
   onGameOver: (score: number) => void;
 }
 
-type EntityType = 'building' | 'car' | 'tank' | 'heli';
+type EntityType = 'building' | 'car' | 'tank' | 'heli' | 'explosion';
 
 interface Entity {
   id: number;
@@ -18,6 +18,7 @@ interface Entity {
   damage?: number;
   value: number;
   lastAttack?: number;
+  ttl?: number;
 }
 
 const WORLD_SPEED = 100; // px / sec
@@ -25,6 +26,10 @@ const BLOCK_LENGTH = 1000; // world units per city block
 const LAND_SPAWN_MS = 1500;
 const AIR_SPAWN_MS = 3000;
 const ATTACK_PAUSE_MS = 300;
+const KAIJU_SIZE = 120;
+const BUILDING_WIDTH = 80;
+const BUILDING_HEIGHT = 160;
+const VEHICLE_SIZE = 40;
 
 export const Level: React.FC<Props> = ({ config, city, onGameOver }) => {
   const [score, setScore] = useState(0);
@@ -34,6 +39,7 @@ export const Level: React.FC<Props> = ({ config, city, onGameOver }) => {
     width: window.innerWidth,
     height: window.innerHeight,
   });
+  const [attacking, setAttacking] = useState(false);
 
   // refs for raf loop
   const entitiesRef = useRef<Entity[]>(entities);
@@ -119,20 +125,30 @@ export const Level: React.FC<Props> = ({ config, city, onGameOver }) => {
     const handleKey = (e: KeyboardEvent) => {
       if (e.code === 'Space') {
         pauseUntilRef.current = performance.now() + ATTACK_PAUSE_MS;
+        setAttacking(true);
+        setTimeout(() => setAttacking(false), ATTACK_PAUSE_MS);
 
         const building = entitiesRef.current.find(
           (ent) =>
             ent.type === 'building' &&
-            ent.x - playerXRef.current < 80 &&
+            ent.x - playerXRef.current < BUILDING_WIDTH &&
             (ent.hp ?? 0) > 0
         );
         if (building) {
           building.hp!--;
+          setEntities([...entitiesRef.current]);
           if ((building.hp ?? 0) <= 0) {
             setScore(scoreRef.current + building.value);
             entitiesRef.current = entitiesRef.current.filter(
               (e) => e.id !== building.id
             );
+            entitiesRef.current.push({
+              id: Date.now() + Math.random(),
+              type: 'explosion',
+              x: building.x,
+              value: 0,
+              ttl: 300,
+            });
             setEntities([...entitiesRef.current]);
           }
           return;
@@ -162,7 +178,7 @@ export const Level: React.FC<Props> = ({ config, city, onGameOver }) => {
       const blocked = entitiesRef.current.some(
         (e) =>
           e.type === 'building' &&
-          e.x - playerXRef.current < 80 &&
+          e.x - playerXRef.current < BUILDING_WIDTH &&
           (e.hp ?? 0) > 0
       );
       const paused =
@@ -201,6 +217,10 @@ export const Level: React.FC<Props> = ({ config, city, onGameOver }) => {
             e.lastAttack = time;
             setHealth(healthRef.current - (e.damage ?? 0));
           }
+        }
+        if (e.type === 'explosion') {
+          e.ttl = (e.ttl ?? 0) - dt * 1000;
+          return (e.ttl ?? 0) > 0;
         }
         return e.x > -100;
       });
@@ -256,8 +276,26 @@ export const Level: React.FC<Props> = ({ config, city, onGameOver }) => {
         <img
           src="/kaiju.svg"
           alt={config.name}
-          style={{ position: 'absolute', left: playerXRef.current, bottom: 0 }}
+          style={{
+            position: 'absolute',
+            left: playerXRef.current,
+            bottom: 0,
+            width: KAIJU_SIZE,
+            height: KAIJU_SIZE,
+          }}
         />
+        {attacking && (
+          <div
+            style={{
+              position: 'absolute',
+              left: playerXRef.current + KAIJU_SIZE,
+              bottom: KAIJU_SIZE * 0.6,
+              width: 60,
+              height: 20,
+              background: 'orange',
+            }}
+          />
+        )}
         {entities.map((ent) => (
           <div
             key={ent.id}
@@ -269,8 +307,16 @@ export const Level: React.FC<Props> = ({ config, city, onGameOver }) => {
                 ent.type === 'heli'
                   ? 160
                   : 0,
-              width: 40,
-              height: ent.type === 'building' ? 100 : 40,
+              width:
+                ent.type === 'building'
+                  ? BUILDING_WIDTH
+                  : VEHICLE_SIZE,
+              height:
+                ent.type === 'building'
+                  ? BUILDING_HEIGHT
+                  : ent.type === 'heli'
+                  ? VEHICLE_SIZE
+                  : VEHICLE_SIZE,
               background:
                 ent.type === 'car'
                   ? 'orange'
@@ -278,7 +324,10 @@ export const Level: React.FC<Props> = ({ config, city, onGameOver }) => {
                   ? 'green'
                   : ent.type === 'heli'
                   ? 'gray'
-                  : '#555',
+                  : ent.type === 'explosion'
+                  ? 'yellow'
+                  : ['#bbb', '#999', '#777', '#555'][ent.hp ?? 0],
+              borderRadius: ent.type === 'explosion' ? '50%' : undefined,
             }}
           />
         ))}
