@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { KaijuConfig, CityDefinition } from '../types';
+import { KaijuConfig, CityDefinition, WeaponType } from '../types';
 
 interface Props {
   config: KaijuConfig;
@@ -58,7 +58,13 @@ export const Level: React.FC<Props> = ({
     width: window.innerWidth,
     height: window.innerHeight,
   });
-  const [attacking, setAttacking] = useState(false);
+  const [
+    attackAnim,
+    setAttackAnim,
+  ] = useState<{
+    weapon: WeaponType;
+    target: 'ground' | 'air';
+  } | null>(null);
 
   // refs for raf loop
   const entitiesRef = useRef<Entity[]>(entities);
@@ -166,8 +172,8 @@ export const Level: React.FC<Props> = ({
     const handleKey = (e: KeyboardEvent) => {
       if (e.code === 'Space') {
         pauseUntilRef.current = performance.now() + ATTACK_PAUSE_MS;
-        setAttacking(true);
-        setTimeout(() => setAttacking(false), ATTACK_PAUSE_MS);
+
+        let target: 'ground' | 'air' | null = null;
 
         const building = entitiesRef.current.find(
           (ent) =>
@@ -176,6 +182,7 @@ export const Level: React.FC<Props> = ({
             (ent.hp ?? 0) > 0
         );
         if (building) {
+          target = 'ground';
           building.hp!--;
           setEntities([...entitiesRef.current]);
           if ((building.hp ?? 0) <= 0) {
@@ -192,16 +199,33 @@ export const Level: React.FC<Props> = ({
             });
             setEntities([...entitiesRef.current]);
           }
-          return;
+        } else {
+          const heli = entitiesRef.current.find(
+            (ent) => ent.type === 'heli' && ent.x - playerXRef.current <= 300
+          );
+          if (heli) {
+            target = 'air';
+            heli.hp!--;
+            if ((heli.hp ?? 0) <= 0) {
+              setScore(scoreRef.current + heli.value);
+              entitiesRef.current = entitiesRef.current.filter(
+                (e) => e.id !== heli.id
+              );
+              entitiesRef.current.push({
+                id: Date.now() + Math.random(),
+                type: 'explosion',
+                x: heli.x,
+                value: 0,
+                ttl: 300,
+              });
+            }
+            setEntities([...entitiesRef.current]);
+          }
         }
 
-        const heliIdx = entitiesRef.current.findIndex(
-          (ent) => ent.type === 'heli' && ent.x - playerXRef.current <= 300
-        );
-        if (heliIdx !== -1) {
-          const [heli] = entitiesRef.current.splice(heliIdx, 1);
-          setScore(scoreRef.current + heli.value);
-          setEntities([...entitiesRef.current]);
+        if (target) {
+          setAttackAnim({ weapon: config.weapon, target });
+          setTimeout(() => setAttackAnim(null), ATTACK_PAUSE_MS);
         }
       }
     };
@@ -350,15 +374,39 @@ export const Level: React.FC<Props> = ({
             height: KAIJU_SIZE,
           }}
         />
-        {attacking && (
+        {attackAnim && (
           <div
             style={{
               position: 'absolute',
               left: playerXRef.current + KAIJU_SIZE,
-              bottom: KAIJU_SIZE * 0.6,
-              width: 60,
-              height: 20,
-              background: 'orange',
+              bottom:
+                attackAnim.target === 'ground'
+                  ? KAIJU_SIZE * 0.6
+                  : KAIJU_SIZE * 0.8,
+              width:
+                attackAnim.weapon === WeaponType.Poison
+                  ? 12
+                  : attackAnim.target === 'ground'
+                  ? 60
+                  : 80,
+              height:
+                attackAnim.weapon === WeaponType.Laser
+                  ? 6
+                  : attackAnim.weapon === WeaponType.Poison
+                  ? 12
+                  : 20,
+              background:
+                attackAnim.weapon === WeaponType.Fire
+                  ? 'orange'
+                  : attackAnim.weapon === WeaponType.Laser
+                  ? 'red'
+                  : 'green',
+              transform:
+                attackAnim.target === 'air' ? 'rotate(-45deg)' : undefined,
+              borderRadius:
+                attackAnim.weapon === WeaponType.Poison
+                  ? '50%'
+                  : undefined,
             }}
           />
         )}
