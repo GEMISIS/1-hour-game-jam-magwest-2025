@@ -1,6 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <circle cx="50" cy="50" r="40" fill="green" />
-  <circle cx="35" cy="40" r="5" fill="white" />
-  <circle cx="65" cy="40" r="5" fill="white" />
-  <rect x="45" y="60" width="10" height="15" fill="red" />
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <ellipse cx="60" cy="70" rx="35" ry="40" fill="#4caf50" />
+  <ellipse cx="40" cy="65" rx="10" ry="20" fill="#4caf50" />
+  <ellipse cx="80" cy="65" rx="10" ry="20" fill="#4caf50" />
+  <circle cx="50" cy="50" r="5" fill="#fff" />
+  <circle cx="70" cy="50" r="5" fill="#fff" />
+  <path d="M50 55 Q60 65 70 55" stroke="#f44336" stroke-width="4" fill="none" />
+  <rect x="55" y="90" width="10" height="20" fill="#f44336" />
 </svg>
