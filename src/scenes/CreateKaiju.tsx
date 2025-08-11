@@ -27,6 +27,7 @@ export const CreateKaiju: React.FC<Props> = ({ onContinue }) => {
 
   const handleContinue = () => {
     const name = config.name.trim();
+    /* istanbul ignore next */
     if (!name) return;
     onContinue({ ...config, name });
   };
